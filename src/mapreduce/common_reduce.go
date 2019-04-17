@@ -1,12 +1,12 @@
 package mapreduce
 
 import (
-	"hash/fnv"
 	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"encoding/json"
-	"sort"
+	"strings"
 )
 
 func doReduce(
@@ -26,7 +26,8 @@ func doReduce(
 	// reduceName(jobName, m, reduceTask) yields the file
 	// name from map task m.
 
-
+	var all map[string][]string
+	all = make(map[string][]string)
 	for i := 0; i < nMap; i++ {
 		fileName := reduceName(jobName, i, reduceTask)
 		tasks, err := ioutil.ReadFile(fileName)
@@ -39,27 +40,24 @@ func doReduce(
 	// read and decode by creating a decoder and repeatedly calling
 	// .Decode(&kv) on it until it returns an error.
 
-		dec := json.NewDecoder(strings.NewReader(tasks))
+		dec := json.NewDecoder(strings.NewReader(string(tasks)))
 		for {
-			var m Message
+			var m KeyValue
 			if err := dec.Decode(&m); err == io.EOF {
 				break
 			}
-			else if err != nil {
+			/*else if err != nil {
 				log.Fatal(err)
-			}
-			fmt.Printf(m.Key, m.Value)
+			}*/
+			all[m.Key] = append(all[m.Key],m.Value)
+			// fmt.Printf(m.Key, m.Value)
 		}
 
 		// split m into slices by looping through key, value pairs
 		// loop through key, check if there is an existing slice
 		// if so, append to that slice
 		// if not, create a new slice and add key to array of existing slices
-
-			for i := range(m) {
-				slice := []*KeyValue{}
-			}
-
+		
 		// reduceF() is the application's reduce function. You should
 		// call it once per distinct key, with a slice of all the values
 		// for that key. reduceF() returns the reduced value for that key.
@@ -67,11 +65,20 @@ func doReduce(
 		// You should write the reduce output as JSON encoded KeyValue
 		// objects to the file named outFile. 
 
+		// defer file.Close()
+
 		// enc := json.NewEncoder(file)
-		// for key := ... {
+		// for _, key := range all {
 		// 	enc.Encode(KeyValue{key, reduceF(...)})
-		// }
-		// file.Close()
 
 	}
+	file, err := os.Create(outFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	enc := json.NewEncoder(file)
+	for k, v := range all {
+        enc.Encode(KeyValue{k, reduceF(k, v)})
+    }
+    file.Close()
 }
