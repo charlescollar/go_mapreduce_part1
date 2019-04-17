@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"mapreduce"
 	"os"
+	"unicode"
+	"strconv"
 )
 
 //
@@ -15,7 +17,34 @@ import (
 //
 func mapF(filename string, contents string) []mapreduce.KeyValue {
 	// Your code here (Part 1B).
-	
+	// Make slice (array) to push to
+	// Define curword = ""
+	// Loop over every character:
+	//   If letter:
+	//     add letter into curword (maybe lowercase?)
+	//   else
+	//     hit end of word, thus
+	//     if curword != ""
+	//       append to our slice, {curword, "1"}
+	//       set curword = ""
+	var ret []mapreduce.KeyValue
+	var curword = ""
+	for _, c := range contents {
+		if unicode.IsLetter(c) { // Add to our current word
+			curword += string(c)
+		} else { // Hit whitespace/something not a letter
+			if curword != "" { // Check to see we actually have a word to add
+				ret = append(ret, mapreduce.KeyValue{curword, "1"})
+				curword = ""
+			}
+		}
+	}
+	// We may have exited the loop with another word that had not yet been
+	// added cause there's no white space after
+	if curword != "" { // Check to see we actually have a word to add
+		ret = append(ret, mapreduce.KeyValue{curword, "1"})
+	}
+	return ret
 }
 
 //
@@ -24,7 +53,7 @@ func mapF(filename string, contents string) []mapreduce.KeyValue {
 // any map task.
 //
 func reduceF(key string, values []string) string {
-	// Your code here (Part 1B).
+	return strconv.Itoa(len(values))
 }
 
 // Can be run in 3 ways:
