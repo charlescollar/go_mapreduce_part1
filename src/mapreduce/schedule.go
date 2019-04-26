@@ -40,22 +40,34 @@ func schedule(jobName string,
 	//var test = go call(args)
 	//if test = false -> Worker Failed, reassign task
 
-	count:=0
+	var failedgroup []DoTaskArgs
 	var myWaitGroup sync.WaitGroup
-	for i := 0; i < ntasks; i++ {
+	for i := 0; (i < ntasks || len(failedgroup) > 0); i++ {
 		worker:= <-registerChan
-		count++
 		myWaitGroup.Add(1) //increment waitgroup counter
 
-		//task args struct 
-		var myTaskStruct = DoTaskArgs{jobName, mapFiles[i], phase, i, n_other}
+		//task args struct
+		// if still going through original tasks, make it out of those
+		var myTaskStruct DoTaskArgs
+		if i < ntasks {
+			myTaskStruct = DoTaskArgs{jobName, mapFiles[i], phase, i, n_other}
+		} else {
+			myTaskStruct, failedgroup = failedgroup[0], failedgroup[1:]
+		}
+		// otherwise, we're onto the failedgroup, already made
 		//concurrency on our RPC calls
-		go func(){
-
-			call(worker, "Worker.DoTask", myTaskStruct, nil)
+		go func() {
+			result := call(worker, "Worker.DoTask", myTaskStruct, nil)
 			myWaitGroup.Done() //decrements waitGroup counter
-			registerChan <- worker  //workers aren't getting past this on task 18 and 19
-			count--
+			// If result is successful, continue as so
+			// If result failed, we need to not return the worker
+			// and add a task back into a vector of failed tasks
+			// which can be done below
+			if result {
+				registerChan <- worker  //workers aren't getting past this on task 18 and 19
+			} else {
+				failedgroup = append(failedgroup, myTaskStruct)
+			}
 		}()
 	}
 	
